@@ -3697,7 +3697,7 @@ def transferDriveFolderContents(drive, source_user, target_user, permissionId, b
               # this might happen if target user isn't explicitly in ACL (i.e. shared with anyone)
               print '   adding %s to drivefileACL for file %s' % (target_user, file_id)
               result = callGAPI(service=drive.permissions(), function=u'insert', fileId=file_id, sendNotificationEmails=False, emailMessage=None, body=bodyAdd)
-              print '   now transferring %s from user %s to new owner %s' % (fileId, source_user, target_user)
+              print '   now transferring %s from user %s to new owner %s' % (file_id, source_user, target_user)
               result = callGAPI(service=drive.permissions(), function=u'patch', fileId=file_id, permissionId=permissionId, transferOwnership=True, body=body)
         if f_file[u'mimeType'] == u'application/vnd.google-apps.folder':
           if not trashed and not f_file[u'labels'][u'trashed'] or trashed:
