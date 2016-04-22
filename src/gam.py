@@ -3525,24 +3525,29 @@ def claimDriveFolder(users):
   skipfiles = []
   skipfolders = []
   skipusers = []
+  subdomains = []
   trashed = False
   # assign variables, and checking skipfiles and skipfolders
-  i = 6
   target_folder = sys.argv[5]
+  i = 6
   while i < len(sys.argv):
     if sys.argv[i].lower() == u'skipfiles' or sys.argv[i].lower() == u'skipfolders' or sys.argv[i].lower() == u'skipusers':
       if sys.argv[i].lower() == u'skipfiles':
         f = openFile(sys.argv[i+1])
         for line in f:
           skipfiles.append(line.rstrip())
-      if sys.argv[i].lower() == u'skipfolders':
+      elif sys.argv[i].lower() == u'skipfolders':
         f = openFile(sys.argv[i+1])
         for line in f:
           skipfolders.append(line.rstrip())
-      if sys.argv[i].lower() == u'skipusers':
+      elif sys.argv[i].lower() == u'skipusers':
         f = openFile(sys.argv[i+1])
         for line in f:
           skipusers.append(line.rstrip())
+      elif sys.argv[i].lower() == u'subdomains':
+        f = openFile(sys.argv[i+1])
+        for line in f:
+          subdomains.append(line.rstrip())
       i += 2
     elif sys.argv[i].lower() == u'includetrashed': 
       trashed = True
@@ -3573,10 +3578,12 @@ def claimDriveFolder(users):
       print u' excluding folders(s): "%s' % skipfolders
     if skipusers:
       print u' excluding user(s): "%s' % skipusers
+    if subdomains:
+      print u' including subdomain(s): "%s' % subdomains
     print u' checking %s files in users drive' % len(feed)
-    claimDriveFolderContents(user, i, files, feed, target_folder, permissionId, skipfiles, skipfolders, skipusers, trashed)
+    claimDriveFolderContents(user, i, files, feed, target_folder, permissionId, skipfiles, skipfolders, skipusers, subdomains, trashed)
 
-def claimDriveFolderContents(target_user, i, files, feed, target_folder, permissionId, skipfiles, skipfolders, skipusers, trashed):
+def claimDriveFolderContents(target_user, i, files, feed, target_folder, permissionId, skipfiles, skipfolders, skipusers, subdomains, trashed):
   for f_file in feed:
     i += 1
     for parent in f_file[u'parents']:
@@ -3589,7 +3596,7 @@ def claimDriveFolderContents(target_user, i, files, feed, target_folder, permiss
         # not checking trashed folders (n.b. trashed folders could contain files that aren't trashed)
         if f_file[u'mimeType'] == u'application/vnd.google-apps.folder'and f_file[u'id'] not in skipfolders:
           if not trashed and not f_file[u'labels'][u'trashed'] or trashed:
-            claimDriveFolderContents(target_user, i, files, feed, f_file[u'id'], permissionId, skipfiles, skipfolders, skipusers, trashed)
+            claimDriveFolderContents(target_user, i, files, feed, f_file[u'id'], permissionId, skipfiles, skipfolders, skipusers, subdomains, trashed)
   if i == len(feed):
     if files:
       # sorting files per owner
@@ -3603,24 +3610,24 @@ def claimDriveFolderContents(target_user, i, files, feed, target_folder, permiss
         if f_owner == source_user:
           tr_files.append(f_id)
         if f_owner != source_user:
-          claimDriveFiles(source_user, tr_files, permissionId, target_user)
+          claimDriveFiles(source_user, tr_files, permissionId, target_user, subdomains)
           # reset source_user and files for new transfer 
           source_user = f_owner
           del tr_files[:]
           tr_files.append(f_id)
         if j == len(files):
-          claimDriveFiles(source_user, tr_files, permissionId, target_user)
+          claimDriveFiles(source_user, tr_files, permissionId, target_user, subdomains)
         j += 1
     print u'--- READY ---\n'
 
-def claimDriveFiles(source_user, files, permissionId, target_user):
+def claimDriveFiles(source_user, files, permissionId, target_user, subdomains):
   userdomain = source_user.split("@")
   transferOwnership = True
   sendNotificationEmails = False
   emailMessage = None
   body = {u'role': u'owner'}
   bodyAdd = {u'role': u'writer', u'type': u'user', u'value': target_user}
-  if userdomain[1] == GC_Values[GC_DOMAIN]:
+  if userdomain[1] == GC_Values[GC_DOMAIN] or userdomain[1] in subdomains:
     source_drive = buildGAPIServiceObject(u'drive', source_user)
     for file_id in files:
       print '  transferring %s from user %s to new owner %s' % (file_id, source_user, target_user)
