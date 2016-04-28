@@ -3653,6 +3653,7 @@ def claimDriveFiles(source_user, files, permissionId, target_user, subdomains):
 def transferDriveFolder(users):
   target_user = ''
   trashed = False
+  remove_source = False
   # assign variables, and checking skipfiles and skipfolders
   target_folder = sys.argv[5]
   i = 6
@@ -3665,6 +3666,9 @@ def transferDriveFolder(users):
       i += 2
     elif sys.argv[i].lower() == u'includetrashed':
       trashed = True
+      i += 1
+  elif sys.argv[i].lower() == u'removeaccess':
+      remove_source = True
       i += 1
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> transfer folder"' % sys.argv[i]
