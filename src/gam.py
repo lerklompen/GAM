@@ -3677,14 +3677,18 @@ def transferDriveFolder(users):
     if source_user.find(u'@') == -1:
       print u'ERROR: got %s, expected a full email address' % source_user
       sys.exit(2)
-    drive = buildGAPIServiceObject(u'drive', target_user)
-    permissionId = callGAPI(service=drive.permissions(), function=u'getIdForEmail', email=target_user, fields=u'id')[u'id']
-    del drive
+    target_drive = buildGAPIServiceObject(u'drive', target_user)
+    permissionId = callGAPI(service=target_drive.permissions(), function=u'getIdForEmail', email=target_user, fields=u'id')[u'id']
+    sys.stderr.write(u'Getting all files for %s...\n' % target_user)
+    page_message = u' got %%%%total_items%%%% files for %s...\n' % target_user
+    target_feed = callGAPIpages(service=target_drive.files(), function=u'list', page_message=page_message,
+                         fields=u'items(id,parents(id),mimeType,owners(emailAddress),labels(trashed),userPermission(role)),nextPageToken', maxResults=GC_Values[GC_DRIVE_MAX_RESULTS])
+    del target_drive
     drive = buildGAPIServiceObject(u'drive', source_user)
     sys.stderr.write(u'Getting all files for %s...\n' % source_user)
     page_message = u' got %%%%total_items%%%% files for %s...\n' % source_user
-    feed = callGAPIpages(service=drive.files(), function=u'list', page_message=page_message,
-                         fields=u'items(id,parents(id),mimeType,owners(emailAddress),labels(trashed)),nextPageToken', maxResults=GC_Values[GC_DRIVE_MAX_RESULTS])
+    source_feed = callGAPIpages(service=drive.files(), function=u'list', page_message=page_message,
+                         fields=u'items(id,parents(id),mimeType,owners(emailAddress),labels(trashed),userPermission(role)),nextPageToken', maxResults=GC_Values[GC_DRIVE_MAX_RESULTS])
     body = {u'role': u'owner'}
     bodyAdd = {u'role': u'writer', u'type': u'user', u'value': target_user}
     #check ownership on target_folder
@@ -3701,9 +3705,9 @@ def transferDriveFolder(users):
             result = callGAPI(service=drive.permissions(), function=u'insert', fileId=file_id, sendNotificationEmails=False, emailMessage=None, body=bodyAdd)
             print '   now transferring %s from user %s to new owner %s' % (file_id, source_user, target_user)
             result = callGAPI(service=drive.permissions(), function=u'patch', fileId=file_id, permissionId=permissionId, transferOwnership=True, body=body)
-    transferDriveFolderContents(drive, source_user, target_user, permissionId, body, bodyAdd, feed, target_folder, trashed)
+    transferDriveFolderContents(drive, source_user, target_user, permissionId, body, bodyAdd, source_feed, target_folder, trashed)
 
-def transferDriveFolderContents(drive, source_user, target_user, permissionId, body, bodyAdd, feed, folder_id, trashed):
+def transferDriveFolderContents(drive, source_user, target_user, permissionId, body, bodyAdd, source_feed, folder_id, trashed):
   for f_file in feed:
     for parent in f_file[u'parents']:
       if folder_id == parent[u'id']:
@@ -3722,7 +3726,7 @@ def transferDriveFolderContents(drive, source_user, target_user, permissionId, b
               result = callGAPI(service=drive.permissions(), function=u'patch', fileId=file_id, permissionId=permissionId, transferOwnership=True, body=body)
         if f_file[u'mimeType'] == u'application/vnd.google-apps.folder':
           if not trashed and not f_file[u'labels'][u'trashed'] or trashed:
-            transferDriveFolderContents(drive, source_user, target_user, permissionId, body, bodyAdd, feed, f_file[u'id'], trashed)
+            transferDriveFolderContents(drive, source_user, target_user, permissionId, body, bodyAdd, source_feed, f_file[u'id'], trashed)
 
 def deleteEmptyDriveFolders(users):
   query = u'"me" in owners and mimeType = "application/vnd.google-apps.folder"'
